@@ -1,0 +1,1125 @@
+================================================================================ 
+REACT DEVELOPMENT QUESTIONS COMPLETE DOCUMENTATION
+================================================================================ 
+PHASE-1: CONTEXT API, REF, HOC
+QUESTION 1: ExpenseTracker_React
+Brief: Create an expense tracker with product name and amount tracking.
+Requirements: • Create ExpenseTracker.jsx, ExpenseForm.jsx, and ExpenseList.jsx • Use class components with lifecycle methods • Handle empty submissions, duplicate updates, and negative validation
+FILE STRUCTURE: reactapp/ ??? src/ ? ??? components/ ? ? ??? ExpenseTracker.jsx ? ? ??? ExpenseForm.jsx ? ? ??? ExpenseList.jsx ? ??? App.js ? ??? index.js
+CODE IMPLEMENTATION:
+=== src/components/ExpenseForm.jsx ===
+import React, { Component } from 'react';
+class ExpenseForm extends Component { constructor(props) { super(props); this.state = { productName: '', amount: '' }; }
+handleChange = (e) => { this.setState({ [e.target.name]: e.target.value }); };
+handleSubmit = (e) => { e.preventDefault(); const { productName, amount } = this.state;
+if (!productName.trim() || !amount.trim()) {
+  alert('Please fill in all fields');
+  return;
+}
+
+if (parseFloat(amount) < 0) {
+  alert('Amount cannot be negative');
+  return;
+}
+
+this.props.onAddExpense(productName, parseFloat(amount));
+this.setState({ productName: '', amount: '' });
+};
+render() { return ( <form onSubmit={this.handleSubmit}> <div> <input type="text" name="productName" placeholder="Product Name" value={this.state.productName} onChange={this.handleChange} /> </div> <div> <input type="number" name="amount" placeholder="Amount" value={this.state.amount} onChange={this.handleChange} /> </div> <button type="submit">Add Expense</button> </form> ); } }
+export default ExpenseForm;
+=== src/components/ExpenseList.jsx ===
+import React, { Component } from 'react';
+class ExpenseList extends Component { render() { const { expenses } = this.props;
+return (
+  <div>
+    <h2>Expenses</h2>
+    <ul>
+      {expenses.map((expense, index) => (
+        <li key={index}>
+          {expense.productName}: ${expense.amount.toFixed(2)}
+        </li>
+      ))}
+    </ul>
+  </div>
+);
+} }
+export default ExpenseList;
+=== src/components/ExpenseTracker.jsx ===
+import React, { Component } from 'react'; import ExpenseForm from './ExpenseForm'; import ExpenseList from './ExpenseList';
+class ExpenseTracker extends Component { constructor(props) { super(props); this.state = { expenses: [], totalCost: 0 }; }
+componentDidMount() { console.log('ExpenseTracker mounted'); }
+componentDidUpdate(prevProps, prevState) { if (prevState.expenses !== this.state.expenses) { console.log('Expenses updated'); } }
+handleAddExpense = (productName, amount) => { const { expenses } = this.state;
+const existingIndex = expenses.findIndex(
+  expense => expense.productName.toLowerCase() === productName.toLowerCase()
+);
+
+if (existingIndex !== -1) {
+  const updatedExpenses = [...expenses];
+  updatedExpenses[existingIndex].amount = amount;
+  
+  this.setState({
+    expenses: updatedExpenses,
+    totalCost: updatedExpenses.reduce((sum, exp) => sum + exp.amount, 0)
+  });
+} else {
+  const newExpense = { productName, amount };
+  const updatedExpenses = [...expenses, newExpense];
+  
+  this.setState({
+    expenses: updatedExpenses,
+    totalCost: updatedExpenses.reduce((sum, exp) => sum + exp.amount, 0)
+  });
+}
+};
+render() { return ( <div> <h1>Expense Tracker</h1> <ExpenseForm onAddExpense={this.handleAddExpense} /> <ExpenseList expenses={this.state.expenses} /> <h3>Total Cost: ${this.state.totalCost.toFixed(2)}</h3> </div> ); } }
+export default ExpenseTracker;
+=== src/App.js ===
+import React from 'react'; import ExpenseTracker from './components/ExpenseTracker'; import './App.css';
+function App() { return ( <div className="App"> <ExpenseTracker /> </div> ); }
+export default App;
+STEPS TO RUN: cd reactapp npm install npm start
+Click on PORT: 8081 to view output
+================================================================================
+QUESTION 2: Higher Order Component
+Brief: Create a WithLoading HOC to simulate loading state.
+Requirements: • Create WithLoading.jsx and MyComponent.jsx • Implement 2-second loading delay • Display loading message during delay
+FILE STRUCTURE: reactapp/ ??? src/ ? ??? components/ ? ? ??? WithLoading.jsx ? ? ??? MyComponent.jsx ? ??? App.js ? ??? index.js
+CODE IMPLEMENTATION:
+=== src/components/WithLoading.jsx ===
+import React, { Component } from 'react';
+const WithLoading = (WrappedComponent) => { return class extends Component { constructor(props) { super(props); this.state = { isLoading: true }; }
+componentDidMount() {
+  setTimeout(() => {
+    this.setState({ isLoading: false });
+  }, 2000);
+}
+
+render() {
+  const { isLoading } = this.state;
+  
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
+  
+  return <WrappedComponent {...this.props} />;
+}
+}; };
+export default WithLoading;
+=== src/components/MyComponent.jsx ===
+import React from 'react';
+const MyComponent = () => { return <h1>Hello, I'm the wrapped component!</h1>; };
+export default MyComponent;
+=== src/App.js ===
+import React from 'react'; import WithLoading from './components/WithLoading'; import MyComponent from './components/MyComponent'; import './App.css';
+const WrappedComponentWithLoading = WithLoading(MyComponent);
+function App() { return ( <div className="App"> <WrappedComponentWithLoading /> </div> ); }
+export default App;
+STEPS TO RUN: cd reactapp npm install npm install canvas npm start
+Click on PORT: 8081 to view output
+================================================================================
+QUESTION 3: Superhero Team Manager
+Brief: Build a superhero management app using Context and custom hooks.
+Requirements: • Add/retire/reactivate heroes with name and superpower • Assign/remove heroes from missions • Filter by status (All, Active, Retired) • Display real-time statistics
+FILE STRUCTURE: reactapp/ ??? src/ ? ??? components/ ? ? ??? HeroForm.js ? ? ??? HeroList.js ? ? ??? HeroCard.js ? ? ??? FilterBar.js ? ? ??? HeroStats.js ? ??? context/ ? ? ??? HeroContext.js ? ??? hooks/ ? ? ??? useHeroManager.js ? ??? App.js ? ??? index.js
+CODE IMPLEMENTATION:
+=== src/hooks/useHeroManager.js ===
+import { useReducer, useState } from 'react';
+const heroReducer = (state, action) => { switch (action.type) { case 'ADD_HERO': return [...state, { id: Date.now(), name: action.payload.name, power: action.payload.power, retired: false, onMission: false }];
+case 'DELETE_HERO':
+  return state.filter(hero => hero.id !== action.payload);
+
+case 'TOGGLE_RETIREMENT':
+  return state.map(hero =>
+    hero.id === action.payload
+      ? { ...hero, retired: !hero.retired }
+      : hero
+  );
+
+case 'TOGGLE_MISSION':
+  return state.map(hero =>
+    hero.id === action.payload
+      ? { ...hero, onMission: !hero.onMission }
+      : hero
+  );
+
+default:
+  return state;
+} };
+const useHeroManager = () => { const [heroes, dispatch] = useReducer(heroReducer, []); const [filter, setFilter] = useState('All');
+const addHero = (name, power) => { dispatch({ type: 'ADD_HERO', payload: { name, power } }); };
+const deleteHero = (id) => { dispatch({ type: 'DELETE_HERO', payload: id }); };
+const toggleRetirement = (id) => { dispatch({ type: 'TOGGLE_RETIREMENT', payload: id }); };
+const toggleMission = (id) => { dispatch({ type: 'TOGGLE_MISSION', payload: id }); };
+return { heroes, filter, setFilter, addHero, deleteHero, toggleRetirement, toggleMission }; };
+export default useHeroManager;
+=== src/context/HeroContext.js ===
+import React, { createContext } from 'react'; import useHeroManager from '../hooks/useHeroManager';
+export const HeroContext = createContext({ heroes: [], addHero: () => {}, deleteHero: () => {}, toggleRetirement: () => {}, toggleMission: () => {}, filter: 'All', setFilter: () => {} });
+export const HeroProvider = ({ children }) => { const heroManager = useHeroManager();
+return ( <HeroContext.Provider value={heroManager}> {children} </HeroContext.Provider> ); };
+=== src/components/HeroForm.js ===
+import React, { useState, useContext } from 'react'; import { HeroContext } from '../context/HeroContext';
+const HeroForm = () => { const [name, setName] = useState(''); const [power, setPower] = useState(''); const { addHero } = useContext(HeroContext);
+const handleSubmit = (e) => { e.preventDefault(); if (name.trim() && power.trim()) { addHero(name, power); setName(''); setPower(''); } };
+return ( <form onSubmit={handleSubmit}> <input type="text" placeholder="Hero Name" value={name} onChange={(e) => setName(e.target.value)} /> <input type="text" placeholder="Superpower" value={power} onChange={(e) => setPower(e.target.value)} /> <button type="submit">Add Hero</button> </form> ); };
+export default HeroForm;
+=== src/components/HeroCard.js ===
+import React, { useContext } from 'react'; import { HeroContext } from '../context/HeroContext';
+const HeroCard = ({ hero }) => { const { deleteHero, toggleRetirement, toggleMission } = useContext(HeroContext);
+return ( <div data-testid="hero-card" style={{ border: '1px solid #ccc', padding: '10px', margin: '10px' }}> <h3>{hero.name}</h3> <p>Power: {hero.power}</p> <p>Status: {hero.retired ? 'Retired' : 'Active'}</p> <p>Mission: {hero.onMission ? 'On Mission' : 'Available'}</p> <button onClick={() => toggleRetirement(hero.id)}> {hero.retired ? 'Reactivate' : 'Retire'} </button> <button onClick={() => toggleMission(hero.id)}> {hero.onMission ? 'Remove from Mission' : 'Assign Mission'} </button> <button onClick={() => deleteHero(hero.id)}>Delete</button> </div> ); };
+export default HeroCard;
+=== src/components/HeroList.js ===
+import React, { useContext } from 'react'; import { HeroContext } from '../context/HeroContext'; import HeroCard from './HeroCard';
+const HeroList = () => { const { heroes, filter } = useContext(HeroContext);
+const filteredHeroes = heroes.filter(hero => { if (filter === 'All') return true; if (filter === 'Active') return !hero.retired; if (filter === 'Retired') return hero.retired; return true; });
+return ( <div className="hero-list"> {filteredHeroes.map(hero => ( <HeroCard key={hero.id} hero={hero} /> ))} </div> ); };
+export default HeroList;
+=== src/components/FilterBar.js ===
+import React, { useContext } from 'react'; import { HeroContext } from '../context/HeroContext';
+const FilterBar = () => { const { filter, setFilter } = useContext(HeroContext);
+return ( <div> <button onClick={() => setFilter('All')}>All</button> <button onClick={() => setFilter('Active')}>Active</button> <button onClick={() => setFilter('Retired')}>Retired</button> </div> ); };
+export default FilterBar;
+=== src/components/HeroStats.js ===
+import React, { useContext } from 'react'; import { HeroContext } from '../context/HeroContext';
+const HeroStats = () => { const { heroes } = useContext(HeroContext);
+const totalHeroes = heroes.length; const activeHeroes = heroes.filter(h => !h.retired).length; const retiredHeroes = heroes.filter(h => h.retired).length; const onMissionHeroes = heroes.filter(h => h.onMission).length;
+return ( <div> <h2>Hero Statistics</h2> <p>Total Heroes: {totalHeroes}</p> <p>Active Heroes: {activeHeroes}</p> <p>Retired Heroes: {retiredHeroes}</p> <p>Heroes on Mission: {onMissionHeroes}</p> </div> ); };
+export default HeroStats;
+=== src/App.js ===
+import React from 'react'; import { HeroProvider } from './context/HeroContext'; import HeroForm from './components/HeroForm'; import FilterBar from './components/FilterBar'; import HeroStats from './components/HeroStats'; import HeroList from './components/HeroList';
+function App() { return ( <HeroProvider> <div className="App"> <h1>Superhero Operations Center</h1> <HeroForm /> <FilterBar /> <HeroStats /> <HeroList /> </div> </HeroProvider> ); }
+export default App;
+STEPS TO RUN: cd reactapp npm i npm start
+Click on PORT: 8081 to view output
+================================================================================ PHASE-2: ROUTING AND LAZY LOADING
+QUESTION 1: Browser Routing
+Brief: Create navigation with Home and About pages using React Router.
+Requirements: • Create Navbar, Home, and About components • Use React Router for navigation • Implement proper routing structure
+FILE STRUCTURE: reactapp/ ??? src/ ? ??? components/ ? ? ??? Navbar.jsx ? ? ??? Home.jsx ? ? ??? About.jsx ? ??? App.js ? ??? index.js
+CODE IMPLEMENTATION:
+=== src/components/Navbar.jsx ===
+import React from 'react'; import { Link } from 'react-router-dom';
+const Navbar = () => { return ( <div className="navbar-container"> <ul className="nav-links"> <li> <Link to="/" className="home">Home</Link> </li> <li> <Link to="/about" className="about">About</Link> </li> </ul> </div> ); };
+export default Navbar;
+=== src/components/Home.jsx ===
+import React from 'react';
+const Home = () => { return ( <div> <h2>Home</h2> <p>Welcome to the home page!</p> </div> ); };
+export default Home;
+=== src/components/About.jsx ===
+import React from 'react';
+const About = () => { return ( <div> <h2>About</h2> <p>This is the about page.</p> </div> ); };
+export default About;
+=== src/App.js ===
+import React from 'react'; import { Routes, Route } from 'react-router-dom'; import Navbar from './components/Navbar'; import Home from './components/Home'; import About from './components/About'; import './App.css';
+function App() { return ( <div className="App"> <Navbar /> <Routes> <Route exact path="/" element={<Home />} /> <Route path="/about" element={<About />} /> </Routes> </div> ); }
+export default App;
+=== src/index.js ===
+import React from 'react'; import ReactDOM from 'react-dom/client'; import { BrowserRouter } from 'react-router-dom'; import App from './App';
+const root = ReactDOM.createRoot(document.getElementById('root')); root.render( <React.StrictMode> <BrowserRouter> <App /> </BrowserRouter> </React.StrictMode> );
+STEPS TO RUN: cd reactapp npm install npm install canvas npm start
+Click on PORT: 8081 to view output
+================================================================================
+QUESTION 2: SPA with Code Splitting and Lazy Loading
+Brief: Implement code splitting for internal dashboard with lazy loading.
+Requirements: • Lazy load Dashboard, Reports, Settings, UserProfile, AdminDashboard • Use Suspense with fallback loading • Implement Error Boundaries • Configure Webpack splitChunks optimization
+FILE STRUCTURE: reactapp/ ??? src/ ? ??? components/ ? ? ??? ErrorBoundary.js ? ? ??? LoadingFallback.js ? ? ??? Navigation.js ? ??? pages/ ? ? ??? Dashboard.js ? ? ??? Reports.js ? ? ??? Settings.js ? ? ??? UserProfile.js ? ? ??? AdminDashboard.js ? ??? App.js ? ??? index.js
+CODE IMPLEMENTATION:
+=== src/components/ErrorBoundary.js ===
+import React from 'react';
+class ErrorBoundary extends React.Component { constructor(props) { super(props); this.state = { hasError: false, error: null }; }
+static getDerivedStateFromError(error) { return { hasError: true, error }; }
+componentDidCatch(error, errorInfo) { console.error('Error caught by boundary:', error, errorInfo); }
+render() { if (this.state.hasError) { return ( <div style={{ padding: '20px', textAlign: 'center' }}> <h2>Something went wrong loading this component</h2> <p>{this.state.error?.message}</p> <button onClick={() => window.location.reload()}> Reload Page </button> </div> ); }
+return this.props.children;
+} }
+export default ErrorBoundary;
+=== src/components/LoadingFallback.js ===
+import React from 'react';
+const LoadingFallback = () => { return ( <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}> <div className="spinner">Loading...</div> </div> ); };
+export default LoadingFallback;
+=== src/components/Navigation.js ===
+import React from 'react'; import { Link } from 'react-router-dom';
+const Navigation = () => { return ( <nav style={{ padding: '10px', background: '#333', color: 'white' }}> <Link to="/" style={{ margin: '0 10px', color: 'white' }}> Dashboard </Link> <Link to="/reports" style={{ margin: '0 10px', color: 'white' }}> Reports </Link> <Link to="/settings" style={{ margin: '0 10px', color: 'white' }}> Settings </Link> <Link to="/profile" style={{ margin: '0 10px', color: 'white' }}> Profile </Link> <Link to="/admin" style={{ margin: '0 10px', color: 'white' }}> Admin </Link> </nav> ); };
+export default Navigation;
+=== src/pages/Dashboard.js ===
+import React from 'react';
+const Dashboard = () => { return ( <div> <h1>Dashboard</h1> <p>Welcome to the dashboard with charts and analytics</p> </div> ); };
+export default Dashboard;
+=== src/pages/Reports.js ===
+import React from 'react';
+const Reports = () => { return ( <div> <h1>Reports</h1> <p>View your reports here</p> </div> ); };
+export default Reports;
+=== src/pages/Settings.js ===
+import React from 'react';
+const Settings = () => { return ( <div> <h1>Settings</h1> <p>Manage your application settings</p> </div> ); };
+export default Settings;
+=== src/pages/UserProfile.js ===
+import React from 'react';
+const UserProfile = () => { return ( <div> <h1>User Profile</h1> <p>View and edit your profile</p> </div> ); };
+export default UserProfile;
+=== src/pages/AdminDashboard.js ===
+import React from 'react';
+const AdminDashboard = () => { return ( <div> <h1>Admin Dashboard</h1> <p>Administrative controls and settings</p> </div> ); };
+export default AdminDashboard;
+=== src/App.js ===
+import React, { Suspense, lazy } from 'react'; import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'; import Navigation from './components/Navigation'; import LoadingFallback from './components/LoadingFallback'; import ErrorBoundary from './components/ErrorBoundary';
+const Dashboard = lazy(() => import(/* webpackPrefetch: true / './pages/Dashboard') ); const Reports = lazy(() => import(/ webpackPrefetch: true / './pages/Reports') ); const Settings = lazy(() => import('./pages/Settings')); const UserProfile = lazy(() => import('./pages/UserProfile')); const AdminDashboard = lazy(() => import(/ webpackPreload: true */ './pages/AdminDashboard') );
+function App() { return ( <Router> <div className="App"> <Navigation /> <ErrorBoundary> <Suspense fallback={<LoadingFallback />}> <Routes> <Route path="/" element={<Dashboard />} /> <Route path="/reports" element={<Reports />} /> <Route path="/settings" element={<Settings />} /> <Route path="/profile" element={<UserProfile />} /> <Route path="/admin" element={<AdminDashboard />} /> </Routes> </Suspense> </ErrorBoundary> </div> </Router> ); }
+export default App;
+STEPS TO RUN: cd reactapp npm install npm start
+Click on PORT: 8081 to view output
+================================================================================
+QUESTION 3: E-Commerce SPA with Code Splitting
+Brief: Build e-commerce SPA with lazy-loaded sections.
+Requirements: • Implement code splitting for Home, Products, Cart, Checkout, Profile, Dashboard • Use React.lazy() and Suspense • Configure Webpack for optimal chunking
+FILE STRUCTURE: reactapp/ ??? src/ ? ??? components/ ? ? ??? Header.js ? ? ??? Loader.js ? ??? pages/ ? ? ??? Home.js ? ? ??? Products.js ? ? ??? Cart.js ? ? ??? Checkout.js ? ? ??? UserProfile.js ? ? ??? AdminDashboard.js ? ??? App.js ? ??? index.js
+CODE IMPLEMENTATION:
+=== src/components/Header.js ===
+import React from 'react'; import { Link } from 'react-router-dom';
+const Header = () => { return ( <nav> <Link to="/">Home</Link> <Link to="/products">Products</Link> <Link to="/cart">Cart</Link> <Link to="/checkout">Checkout</Link> <Link to="/profile">Profile</Link> <Link to="/dashboard">Dashboard</Link> </nav> ); };
+export default Header;
+=== src/components/Loader.js ===
+import React from 'react';
+const Loader = () => { return <div>loading</div>; };
+export default Loader;
+=== src/pages/Home.js ===
+import React from 'react';
+const Home = () => { return ( <div> <p>Welcome to our E-Commerce Website</p> </div> ); };
+export default Home;
+=== src/pages/Products.js ===
+import React from 'react';
+const Products = () => { return ( <div> <p>Product List</p> </div> ); };
+export default Products;
+=== src/pages/Cart.js ===
+import React from 'react';
+const Cart = () => { return ( <div> <p>Your Shopping Cart</p> </div> ); };
+export default Cart;
+=== src/pages/Checkout.js ===
+import React from 'react';
+const Checkout = () => { return ( <div> <p>Checkout Page</p> </div> ); };
+export default Checkout;
+=== src/pages/UserProfile.js ===
+import React from 'react';
+const UserProfile = () => { return ( <div> <p>User Profile</p> </div> ); };
+export default UserProfile;
+=== src/pages/AdminDashboard.js ===
+import React from 'react';
+const AdminDashboard = () => { return ( <div> <p>Admin Dashboard</p> </div> ); };
+export default AdminDashboard;
+=== src/App.js ===
+import React, { Suspense, lazy } from 'react'; import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'; import Header from './components/Header'; import Loader from './components/Loader';
+const Home = lazy(() => import('./pages/Home')); const Products = lazy(() => import('./pages/Products')); const Cart = lazy(() => import('./pages/Cart')); const Checkout = lazy(() => import('./pages/Checkout')); const UserProfile = lazy(() => import('./pages/UserProfile')); const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
+function App() { return ( <Router> <Header /> <Suspense fallback={<Loader />}> <Routes> <Route path="/" element={<Home />} /> <Route path="/products" element={<Products />} /> <Route path="/cart" element={<Cart />} /> <Route path="/checkout" element={<Checkout />} /> <Route path="/profile" element={<UserProfile />} /> <Route path="/dashboard" element={<AdminDashboard />} /> </Routes> </Suspense> </Router> ); }
+export default App;
+STEPS TO RUN: cd reactapp npm i npm start
+Click on PORT: 8081 to view output
+================================================================================
+QUESTION 4: Dashboard with Lazy Loading (6 Pages)
+Brief: Create dashboard with lazy-loaded components for performance.
+Requirements: • Implement lazy loading for 6 pages • Create Loader fallback component • Use React.lazy and React Router
+FILE STRUCTURE: reactapp/ ??? src/ ? ??? components/ ? ? ??? Loader.jsx ? ??? pages/ ? ? ??? Home.jsx ? ? ??? Profile.jsx ? ? ??? Reports.jsx ? ? ??? Notifications.jsx ? ? ??? Settings.jsx ? ? ??? Help.jsx ? ??? routes/ ? ? ??? AppRoutes.jsx ? ??? App.js ? ??? index.js
+CODE IMPLEMENTATION:
+=== src/components/Loader.jsx ===
+import React from 'react';
+const Loader = () => { return <div>Loading...</div>; };
+export default Loader;
+=== src/pages/Home.jsx ===
+import React from 'react';
+const Home = () => { return <h1>Welcome to Home Page</h1>; };
+export default Home;
+=== src/pages/Profile.jsx ===
+import React from 'react';
+const Profile = () => { return <h1>User Profile</h1>; };
+export default Profile;
+=== src/pages/Reports.jsx ===
+import React from 'react';
+const Reports = () => { return <h1>Analytics Reports</h1>; };
+export default Reports;
+=== src/pages/Notifications.jsx ===
+import React from 'react';
+const Notifications = () => { return <h1>Your Notifications</h1>; };
+export default Notifications;
+=== src/pages/Settings.jsx ===
+import React from 'react';
+const Settings = () => { return <h1>App Settings</h1>; };
+export default Settings;
+=== src/pages/Help.jsx ===
+import React from 'react';
+const Help = () => { return <h1>Help Center</h1>; };
+export default Help;
+=== src/routes/AppRoutes.jsx ===
+import React, { Suspense, lazy } from 'react'; import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom'; import Loader from '../components/Loader';
+const Home = lazy(() => import('../pages/Home')); const Profile = lazy(() => import('../pages/Profile')); const Reports = lazy(() => import('../pages/Reports')); const Notifications = lazy(() => import('../pages/Notifications')); const Settings = lazy(() => import('../pages/Settings')); const Help = lazy(() => import('../pages/Help'));
+const AppRoutes = () => { return ( <Router> <div> <nav> <Link to="/" style={{ marginRight: '10px' }}>Home</Link> <Link to="/profile" style={{ marginRight: '10px' }}>Profile</Link> <Link to="/reports" style={{ marginRight: '10px' }}>Reports</Link> <Link to="/notifications" style={{ marginRight: '10px' }}> Notifications </Link> <Link to="/settings" style={{ marginRight: '10px' }}>Settings</Link> <Link to="/help" style={{ marginRight: '10px' }}>Help</Link> </nav>
+    <Suspense fallback={<Loader />}>
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/profile" element={<Profile />} />
+        <Route path="/reports" element={<Reports />} />
+        <Route path="/notifications" element={<Notifications />} />
+        <Route path="/settings" element={<Settings />} />
+        <Route path="/help" element={<Help />} />
+      </Routes>
+    </Suspense>
+  </div>
+</Router>
+); };
+export default AppRoutes;
+=== src/App.js ===
+import React from 'react'; import AppRoutes from './routes/AppRoutes';
+function App() { return ( <div className="App"> <AppRoutes /> </div> ); }
+export default App;
+STEPS TO RUN: cd reactapp npm i npm start
+Click on PORT: 8081 to view output
+================================================================================
+QUESTION 5: Code Splitting with Home and About
+Brief: Demonstrate code splitting using React.lazy() and Suspense.
+Requirements: • Lazy load Home and About components • Show loading fallback during load • Write Jest test cases for loading states
+FILE STRUCTURE: reactapp/ ??? src/ ? ??? components/ ? ? ??? Home.jsx ? ? ??? About.jsx ? ??? App.js ? ??? index.js
+CODE IMPLEMENTATION:
+=== src/components/Home.jsx ===
+import React from 'react';
+const Home = () => { return ( <div> <h1>Welcome to the Home Page</h1> </div> ); };
+export default Home;
+=== src/components/About.jsx ===
+import React from 'react';
+const About = () => { return ( <div> <h1>About Us</h1> </div> ); };
+export default About;
+=== src/App.js ===
+import React, { Suspense, lazy } from 'react'; import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
+const Home = lazy(() => import('./components/Home')); const About = lazy(() => import('./components/About'));
+function App() { return ( <Router> <nav> <Link to="/">Home</Link> | <Link to="/about">About</Link> </nav>
+  <Suspense fallback={<div>Loading...</div>}>
+    <Routes>
+      <Route path="/" element={<Home />} />
+      <Route path="/about" element={<About />} />
+    </Routes>
+  </Suspense>
+</Router>
+); }
+export default App;
+STEPS TO RUN: cd reactapp npm install npm start
+Click on PORT: 8081 to view output
+================================================================================ 
+PHASE-3: REDUX
+QUESTION 1: Counter App using Redux
+Brief: Create a counter application using Redux for state management.
+Requirements: • Create Counter component with increment/decrement buttons • Implement Redux store, actions, and reducer • Use Provider to wrap application
+FILE STRUCTURE: reactapp/ ??? src/ ? ??? components/ ? ? ??? Counter.jsx ? ??? redux/ ? ? ??? CounterAction.js ? ? ??? CounterReducer.js ? ? ??? Store.js ? ??? App.js ? ??? index.js
+CODE IMPLEMENTATION:
+=== src/redux/CounterAction.js ===
+export const increment = () => ({ type: 'INCREMENT' });
+export const decrement = () => ({ type: 'DECREMENT' });
+=== src/redux/CounterReducer.js ===
+const initialState = { count: 0 };
+const counterReducer = (state = initialState, action) => { switch (action.type) { case 'INCREMENT': return { ...state, count: state.count + 1 }; case 'DECREMENT': return { ...state, count: state.count - 1 }; default: return state; } };
+export default counterReducer;
+=== src/redux/Store.js ===
+import { createStore } from 'redux'; import counterReducer from './CounterReducer';
+const store = createStore(counterReducer);
+export default store;
+=== src/components/Counter.jsx ===
+import React from 'react'; import { useSelector, useDispatch } from 'react-redux'; import { increment, decrement } from '../redux/CounterAction';
+const Counter = () => { const count = useSelector(state => state.count); const dispatch = useDispatch();
+return ( <div> <p>Count: {count}</p> <button onClick={() => dispatch(increment())}>Increment</button> <button onClick={() => dispatch(decrement())}>Decrement</button> </div> ); };
+export default Counter;
+=== src/App.js ===
+import React from 'react'; import { Provider } from 'react-redux'; import store from './redux/Store'; import Counter from './components/Counter';
+function App() { return ( <Provider store={store}> <div className="App"> <Counter /> </div> </Provider> ); }
+export default App;
+STEPS TO RUN: cd reactapp npm install npm install canvas npm start
+Click on PORT: 8081 to view output
+================================================================================
+QUESTION 2: Stopwatch using Redux Toolkit
+Brief: Build a stopwatch with Redux Toolkit storing timer history.
+Requirements: • Implement start, stop, reset, and save functionality • Store up to 5 recent timers • Display time in MM:SS:MS format
+FILE STRUCTURE: reactapp/ ??? src/ ? ??? components/ ? ? ??? Stopwatch.jsx ? ??? redux/ ? ? ??? stopwatchSlice.js ? ? ??? store.js ? ??? App.js ? ??? index.js
+CODE IMPLEMENTATION:
+=== src/redux/stopwatchSlice.js ===
+import { createSlice } from '@reduxjs/toolkit';
+const stopwatchSlice = createSlice({ name: 'stopwatch', initialState: { time: 0, isRunning: false, savedTimes: [] }, reducers: { start: (state) => { state.isRunning = true; }, stop: (state) => { state.isRunning = false; }, reset: (state) => { state.time = 0; state.isRunning = false; }, tick: (state) => { if (state.isRunning) { state.time += 10; } }, save: (state) => { if (state.savedTimes.length >= 5) { state.savedTimes.pop(); } state.savedTimes.unshift(state.time); } } });
+export const { start, stop, reset, tick, save } = stopwatchSlice.actions; export default stopwatchSlice.reducer;
+=== src/redux/store.js ===
+import { configureStore } from '@reduxjs/toolkit'; import stopwatchReducer from './stopwatchSlice';
+const store = configureStore({ reducer: { stopwatch: stopwatchReducer } });
+export default store;
+=== src/components/Stopwatch.jsx ===
+import React, { useEffect } from 'react'; import { useSelector, useDispatch } from 'react-redux'; import { start, stop, reset, tick, save } from '../redux/stopwatchSlice';
+const Stopwatch = () => { const { time, isRunning, savedTimes } = useSelector(state => state.stopwatch); const dispatch = useDispatch();
+useEffect(() => { let interval = null; if (isRunning) { interval = setInterval(() => { dispatch(tick()); }, 10); } return () => clearInterval(interval); }, [isRunning, dispatch]);
+const formatTime = (milliseconds) => { const ms = Math.floor((milliseconds % 1000) / 10); const seconds = Math.floor((milliseconds / 1000) % 60); const minutes = Math.floor((milliseconds / 60000) % 60);
+return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}:${ms.toString().padStart(2, '0')}`;
+};
+return ( <div> <h1>{formatTime(time)}</h1> <button onClick={() => dispatch(start())}>Start</button> <button onClick={() => dispatch(stop())}>Stop</button> <button onClick={() => dispatch(reset())}>Reset</button> <button onClick={() => dispatch(save())}>Save</button>
+  <h2>Saved Times:</h2>
+  <ul>
+    {savedTimes.map((savedTime, index) => (
+      <li key={index}>{formatTime(savedTime)}</li>
+    ))}
+  </ul>
+</div>
+); };
+export default Stopwatch;
+=== src/App.js ===
+import React from 'react'; import { Provider } from 'react-redux'; import store from './redux/store'; import Stopwatch from './components/Stopwatch';
+function App() { return ( <Provider store={store}> <div className="App"> <Stopwatch /> </div> </Provider> ); }
+export default App;
+STEPS TO RUN: cd reactapp npm i npm start
+Click on PORT: 8081 to view output
+================================================================================
+QUESTION 3: Campaign Manager (Redux Toolkit)
+Brief: Build campaign manager with add, update, and delete functionality.
+Requirements: • Create CampaignForm and CampaignList components • Implement Redux Toolkit slice with CRUD operations • Enable inline editing of campaign titles
+FILE STRUCTURE: reactapp/ ??? src/ ? ??? components/ ? ? ??? CampaignForm.jsx ? ? ??? CampaignList.jsx ? ??? redux/ ? ? ??? slice.js ? ? ??? store.js ? ??? App.js ? ??? index.js
+CODE IMPLEMENTATION:
+=== src/redux/slice.js ===
+import { createSlice } from '@reduxjs/toolkit'; import { v4 as uuidv4 } from 'uuid';
+const campaignSlice = createSlice({ name: 'campaigns', initialState: { campaigns: [] }, reducers: { addCampaign: (state, action) => { state.campaigns.push({ id: uuidv4(), title: action.payload }); }, updateCampaign: (state, action) => { const { id, title } = action.payload; const campaign = state.campaigns.find(c => c.id === id); if (campaign) { campaign.title = title; } }, deleteCampaign: (state, action) => { state.campaigns = state.campaigns.filter(c => c.id !== action.payload); } } });
+export const { addCampaign, updateCampaign, deleteCampaign } = campaignSlice.actions; export default campaignSlice.reducer;
+=== src/redux/store.js ===
+import { configureStore } from '@reduxjs/toolkit'; import campaignReducer from './slice';
+const store = configureStore({ reducer: { campaigns: campaignReducer } });
+export default store;
+=== src/components/CampaignForm.jsx ===
+import React, { useState } from 'react'; import { useDispatch } from 'react-redux'; import { addCampaign } from '../redux/slice';
+const CampaignForm = () => { const [title, setTitle] = useState(''); const dispatch = useDispatch();
+const handleSubmit = (e) => { e.preventDefault(); if (title.trim()) { dispatch(addCampaign(title)); setTitle(''); } };
+return ( <form onSubmit={handleSubmit}> <input type="text" placeholder="Enter campaign title" value={title} onChange={(e) => setTitle(e.target.value)} /> <button type="submit">Add Campaign</button> </form> ); };
+export default CampaignForm;
+=== src/components/CampaignList.jsx ===
+import React, { useState } from 'react'; import { useSelector, useDispatch } from 'react-redux'; import { updateCampaign, deleteCampaign } from '../redux/slice';
+const CampaignList = () => { const campaigns = useSelector(state => state.campaigns.campaigns); const dispatch = useDispatch(); const [editingId, setEditingId] = useState(null); const [editTitle, setEditTitle] = useState('');
+const handleEdit = (campaign) => { setEditingId(campaign.id); setEditTitle(campaign.title); };
+const handleUpdate = (id) => { if (editTitle.trim()) { dispatch(updateCampaign({ id, title: editTitle })); setEditingId(null); setEditTitle(''); } };
+const handleDelete = (id) => { dispatch(deleteCampaign(id)); };
+return ( <div> <h2>Campaign List</h2> <ul> {campaigns.map(campaign => ( <li key={campaign.id}> {editingId === campaign.id ? ( <> <input type="text" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} /> <button onClick={() => handleUpdate(campaign.id)}>Save</button> <button onClick={() => setEditingId(null)}>Cancel</button> </> ) : ( <> <span>{campaign.title}</span> <button onClick={() => handleEdit(campaign)}>Edit</button> <button onClick={() => handleDelete(campaign.id)}>Delete</button> </> )} </li> ))} </ul> </div> ); };
+export default CampaignList;
+=== src/App.js ===
+import React from 'react'; import { Provider } from 'react-redux'; import store from './redux/store'; import CampaignForm from './components/CampaignForm'; import CampaignList from './components/CampaignList';
+function App() { return ( <Provider store={store}> <div className="App"> <h1>Campaign Manager</h1> <CampaignForm /> <CampaignList /> </div> </Provider> ); }
+export default App;
+STEPS TO RUN: cd reactapp npm install npm start npm test
+Click on PORT: 8081 to view output
+================================================================================ 
+PHASE-4: API INTEGRATION
+QUESTION 1: User List with Material-UI and API Fetching
+Brief: Display user list from API using Material-UI components.
+Requirements: • Fetch users from local JSON server • Display using Material-UI List components • Show avatar, name, and email for each user
+FILE STRUCTURE: reactapp/ ??? src/ ? ??? components/ ? ? ??? UserList.jsx ? ??? services/ ? ? ??? UserApi.js ? ??? shared/ ? ? ??? db.json ? ??? App.js ? ??? index.js
+CODE IMPLEMENTATION:
+=== src/services/UserApi.js ===
+import axios from 'axios';
+const URI = 'http://localhost:3005';
+export const getAllUsers = async () => { return await axios.get(${URI}/users); };
+=== src/components/UserList.jsx ===
+import React, { useState, useEffect } from 'react'; import { Avatar, List, ListItem, ListItemAvatar, ListItemText, Typography } from '@mui/material'; import { getAllUsers } from '../services/UserApi';
+const UserList = () => { const [userList, setUserList] = useState([]);
+useEffect(() => { const fetchData = async () => { try { const response = await getAllUsers(); setUserList(response.data); } catch (error) { console.error('Error fetching users:', error); } };
+fetchData();
+}, []);
+return ( <div> <Typography variant="h4">User List</Typography> <List> {userList.map(user => ( <ListItem key={user.id}> <ListItemAvatar> <Avatar>{user.name.charAt(0)}</Avatar> </ListItemAvatar> <ListItemText primary={user.name} secondary={user.email} /> </ListItem> ))} </List> </div> ); };
+export default UserList;
+=== src/App.js ===
+import React from 'react'; import UserList from './components/UserList'; import './App.css';
+function App() { return ( <div className="App"> <UserList /> </div> ); }
+export default App;
+STEPS TO RUN: cd reactapp npm install npm install canvas
+In another terminal, navigate to shared folder
+cd src/shared npx json-server --watch db.json -p 3005
+Start React app
+cd reactapp npm start
+Click on PORT: 8081 to view output
+================================================================================
+
+QUESTION 2: Blog Post Viewer
+Brief: Fetch and display blog posts from public API.
+Requirements: • Fetch posts from JSONPlaceholder API • Display first 5 posts • Handle loading and error states • Write Jest test cases
+FILE STRUCTURE: reactapp/ ??? src/ ? ??? components/ ? ? ??? PostList.js ? ??? App.js ? ??? index.js
+CODE IMPLEMENTATION:
+=== src/components/PostList.js ===
+import React, { useEffect, useState } from 'react';
+function PostList() { const [posts, setPosts] = useState([]); const [loading, setLoading] = useState(true); const [error, setError] = useState('');
+useEffect(() => { const fetchPosts = async () => { try { const res = await fetch('https://jsonplaceholder.typicode.com/posts'); if (!res.ok) { throw new Error(Status: ${res.status}); }
+    const data = await res.json();
+    setPosts(data.slice(0, 5));
+  } catch (err) {
+    if (err.message.includes('Status')) {
+      setError(err.message);
+    } else {
+      setError('Error fetching posts');
+    }
+  } finally {
+    setLoading(false);
+  }
+};
+
+fetchPosts();
+}, []);
+if (loading) { return <p>Loading posts...</p>; }
+if (error) { return <p>{error}</p>; }
+return ( <div> <h1>Posts</h1> <ul data-testid="post-list"> {posts.map(post => ( <li key={post.id}>{post.title}</li> ))} </ul> </div> ); }
+export default PostList;
+=== src/App.js ===
+import React from 'react'; import PostList from './components/PostList';
+function App() { return ( <div className="App"> <PostList /> </div> ); }
+export default App;
+STEPS TO RUN: cd reactapp npm i npm start
+Click on PORT: 8081 to view output
+Click "Run Test Case" to run tests
+================================================================================
+QUESTION 3: User Profile with Material-UI and API
+Brief: Create user registration with profile management.
+Requirements: • Create UserForm for registration • Create UserProfile with edit/delete functionality • Implement CRUD operations with API • Use Material-UI components
+FILE STRUCTURE: reactapp/ ??? src/ ? ??? components/ ? ? ??? UserForm.jsx ? ? ??? UserProfile.jsx ? ??? services/ ? ? ??? UserApi.js ? ??? shared/ ? ? ??? db.json ? ??? App.js ? ??? index.js
+CODE IMPLEMENTATION:
+=== src/services/UserApi.js ===
+import axios from 'axios';
+const URI = 'http://localhost:3005';
+export const saveUser = async (userData) => { try { const response = await axios.get(${URI}/users); const users = response.data; const newId = users.length > 0 ? Math.max(...users.map(u => u.id)) + 1 : 1;
+const newUser = {
+  ...userData,
+  id: newId
+};
+
+return await axios.post(`${URI}/users`, newUser);
+} catch (error) { console.error('Error saving user:', error); throw error; } };
+export const getUserById = async (id) => { try { return await axios.get(${URI}/users/${id}); } catch (error) { console.error('Error fetching user:', error); throw error; } };
+export const updateUser = async (id, userData) => { try { return await axios.put(${URI}/users/${id}, userData); } catch (error) { console.error('Error updating user:', error); throw error; } };
+export const deleteUser = async (id) => { try { return await axios.delete(${URI}/users/${id}); } catch (error) { console.error('Error deleting user:', error); throw error; } };
+=== src/components/UserForm.jsx ===
+import React, { useState } from 'react'; import { useNavigate } from 'react-router-dom'; import { saveUser } from '../services/UserApi'; import './Form.css';
+const UserForm = () => { const [formData, setFormData] = useState({ name: '', email: '', phone: '' });
+const navigate = useNavigate();
+const handleChangeEvent = (e) => { setFormData({ ...formData, [e.target.name]: e.target.value }); };
+const handleSubmit = async (e) => { e.preventDefault(); try { const response = await saveUser(formData); navigate(/user-profile/${response.data.id}); } catch (error) { console.error('Error submitting form:', error); } };
+return ( <div className="form-container"> <h2>User Registration</h2> <form onSubmit={handleSubmit}> <div> <label htmlFor="name">Name</label> <input type="text" id="name" name="name" value={formData.name} onChange={handleChangeEvent} required /> </div> <div> <label htmlFor="email">Email</label> <input type="email" id="email" name="email" value={formData.email} onChange={handleChangeEvent} required /> </div> <div> <label htmlFor="phone">Phone</label> <input type="tel" id="phone" name="phone" value={formData.phone} onChange={handleChangeEvent} required /> </div> <button type="submit">Submit</button> </form> </div> ); };
+export default UserForm;
+=== src/components/UserProfile.jsx ===
+import React, { useState, useEffect } from 'react'; import { useParams, useNavigate } from 'react-router-dom'; import { Card, CardContent, Typography, Button } from '@mui/material'; import { getUserById, updateUser, deleteUser } from '../services/UserApi';
+const UserProfile = () => { const { id } = useParams(); const navigate = useNavigate(); const [user, setUser] = useState({}); const [editMode, setEditMode] = useState(false);
+useEffect(() => { const fetchUser = async () => { try { const response = await getUserById(id); setUser(response.data); } catch (error) { console.error('Error fetching user:', error); } };
+fetchUser();
+}, [id]);
+const handleChangeEvent = (e) => { setUser({ ...user, [e.target.name]: e.target.value }); };
+const handleEditClick = () => { setEditMode(true); };
+const handleSaveClick = async () => { try { await updateUser(id, user); setEditMode(false); } catch (error) { console.error('Error updating user:', error); } };
+const handleDeleteClick = async () => { try { await deleteUser(id); navigate('/'); } catch (error) { console.error('Error deleting user:', error); } };
+if (!user.id) { return ( <div> <p>User not found</p> <Button onClick={() => navigate('/')}>Back</Button> </div> ); }
+return ( <Card> <CardContent> <Typography variant="h4">User Profile</Typography> {editMode ? ( <div> <input type="text" name="name" value={user.name} onChange={handleChangeEvent} /> <input type="email" name="email" value={user.email} onChange={handleChangeEvent} /> <input type="tel" name="phone" value={user.phone} onChange={handleChangeEvent} /> <Button onClick={handleSaveClick}>Save</Button> </div> ) : ( <div> <Typography>Name: {user.name}</Typography> <Typography>Email: {user.email}</Typography> <Typography>Phone: {user.phone}</Typography> <Button onClick={handleEditClick}>Edit</Button> <Button onClick={handleDeleteClick}>Delete</Button> </div> )} </CardContent> </Card> ); };
+export default UserProfile;
+=== src/App.js ===
+import React from 'react'; import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'; import UserForm from './components/UserForm'; import UserProfile from './components/UserProfile'; import './App.css';
+function App() { return ( <Router> <div className="App"> <Routes> <Route path="/" element={<UserForm />} /> <Route path="/user-profile/:id" element={<UserProfile />} /> </Routes> </div> </Router> ); }
+export default App;
+STEPS TO RUN: cd reactapp npm install npm install canvas
+In another terminal, navigate to shared folder
+cd src/shared npx json-server --watch db.json -p 3005
+Start React app
+cd reactapp npm start
+Click on PORT: 8081 to view output
+================================================================================
+PHASE-5: ENVIRONMENT VARIABLES
+
+QUESTION 1: React Application with Environment Configurations
+Brief: Implement environment-specific configurations using .env files.
+Requirements:
+
+Create .env, .env.production, and .env.local files
+Read API URL, API Key, and Mode from environment variables
+Display environment variables in the UI
+
+FILE STRUCTURE:
+reactapp/
++-- src/
+¦   +-- App.js
+¦   +-- App.css
+¦   +-- index.js
+¦   +-- tests/
+¦       +-- App.test.js
++-- .env
++-- .env.production
++-- .env.local
++-- package.json
+CODE IMPLEMENTATION:
+=== .env (Development environment) ===
+REACT_APP_API_URL=http://localhost:5000
+REACT_APP_API_KEY=your_default_api_key
+REACT_APP_MODE=development
+=== .env.production (Production environment) ===
+REACT_APP_API_URL=https://8081-bbdfbbe335317157daacccbabeddaone.premiumproject.examly.io
+REACT_APP_API_KEY=your_production_api_key
+REACT_APP_MODE=production
+=== .env.local (Local overrides) ===
+REACT_APP_API_URL=http://localhost:3001
+REACT_APP_API_KEY=your_local_api_key
+REACT_APP_MODE=local
+=== src/App.js ===
+import React from 'react';
+import './App.css';
+function App() {
+// Read environment variables from process.env
+const apiUrl = process.env.REACT_APP_API_URL || 'Not Set';
+const apiKey = process.env.REACT_APP_API_KEY || 'Not Set';
+const appMode = process.env.REACT_APP_MODE || 'Not Set';
+return (
+<div className="App" style={{ padding: '20px' }}>
+<h1>Environment Variables</h1>
+  {/* Render the variables in the exact format the tests expect */}
+  <p>API URL: {apiUrl}</p>
+  <p>API Key: {apiKey}</p>
+  <p>Mode: {appMode}</p>
+</div>
+);
+}
+export default App;
+STEPS TO RUN:
+cd reactapp
+npm install
+npm install canvas
+npm start
+Click on PORT: 8081 to view output
+================================================================================
+
+QUESTION 2: Manage Environment-Specific Configurations
+Brief: Fetch and display data from API using environment variable.
+Requirements:
+
+Store API URL in .env file
+Fetch data from JSONPlaceholder API
+Display first user data from the API
+
+FILE STRUCTURE:
+reactapp/
++-- src/
+¦   +-- App.js
+¦   +-- App.css
+¦   +-- index.js
++-- .env
++-- .env.production
++-- package.json
+CODE IMPLEMENTATION:
+=== .env ===
+REACT_APP_API_URL=https://jsonplaceholder.typicode.com/users
+=== src/App.js ===
+import React, { useState, useEffect } from 'react';
+import './App.css';
+function App() {
+const [data, setData] = useState(null);
+const [loading, setLoading] = useState(true);
+const [error, setError] = useState(null);
+useEffect(() => {
+const fetchData = async () => {
+try {
+const response = await fetch(process.env.REACT_APP_API_URL);
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const result = await response.json();
+    setData(result[0]); // Display only the first user's data
+
+  } catch (e) {
+    setError(e.message);
+  } finally {
+    setLoading(false);
+  }
+};
+
+fetchData();
+}, []);
+return (
+<div className="App">
+<h1>Data from API:</h1>
+  {loading && <p>Loading...</p>}
+  {error && <p>Error fetching data: {error}</p>}
+  
+  {data && (
+    <pre>
+      {JSON.stringify(data, null, 2)}
+    </pre>
+  )}
+</div>
+);
+}
+export default App;
+STEPS TO RUN:
+cd reactapp
+npm install
+npm install canvas
+npm start
+Click on PORT: 8081 to view output
+================================================================================
+
+QUESTION 3: Dashboard with Dynamic Theme and Feature Flags
+Brief: Create dashboard with environment-based theme and feature toggles.
+Requirements:
+
+Set background color using REACT_APP_THEME_COLOR
+Toggle Chat Support widget using REACT_APP_FEATURE_CHAT_ENABLED
+Create Dashboard and ChatWidget components
+
+FILE STRUCTURE:
+reactapp/
++-- src/
+¦   +-- components/
+¦   ¦   +-- Dashboard.js
+¦   ¦   +-- ChatWidget.js
+¦   +-- App.js
+¦   +-- index.js
++-- .env
++-- package.json
+CODE IMPLEMENTATION:
+=== .env ===
+Sets the background color for the dashboard
+REACT_APP_THEME_COLOR=#5F9EA0
+Toggles the visibility of the chat support widget
+REACT_APP_FEATURE_CHAT_ENABLED=true
+=== src/components/ChatWidget.js ===
+import React from 'react';
+function ChatWidget() {
+return (
+<div style={{ marginTop: '20px' }}>
+<h2>Chat Support</h2>
+<p>Welcome! How can we assist you today?</p>
+</div>
+);
+}
+export default ChatWidget;
+=== src/components/Dashboard.js ===
+import React from 'react';
+import ChatWidget from './ChatWidget';
+function Dashboard() {
+// Read the theme color from environment variables with fallback
+const themeColor = process.env.REACT_APP_THEME_COLOR || '#ffffff';
+// Check if the chat feature flag is enabled
+const isChatEnabled = process.env.REACT_APP_FEATURE_CHAT_ENABLED === 'true';
+return (
+<div style={{
+backgroundColor: themeColor,
+padding: '20px',
+minHeight: '100vh'
+}}>
+<h1>Dashboard</h1>
+<p>This is your dashboard with a custom theme.</p>
+  {/* Conditionally render the ChatWidget */}
+  {isChatEnabled && <ChatWidget />}
+</div>
+);
+}
+export default Dashboard;
+=== src/App.js ===
+import React from 'react';
+import Dashboard from './components/Dashboard';
+function App() {
+return (
+<Dashboard />
+);
+}
+export default App;
+STEPS TO RUN:
+cd reactapp
+npm install
+npm start
+Click on PORT: 8081 to view output
+================================================================================
+
+QUESTION 4: SimpleUserTabs with API Integration
+Brief: Create tabbed interface to display user data from API.
+Requirements:
+
+Fetch user data from JSONPlaceholder API
+Create tabs for Name, Email, Username, and Mobile No
+Display data based on selected tab
+
+FILE STRUCTURE:
+reactapp/
++-- src/
+¦   +-- SimpleUserTabs.js
+¦   +-- App.js
+¦   +-- index.js
++-- .env
++-- package.json
+CODE IMPLEMENTATION:
+=== .env ===
+REACT_APP_API_URL=https://jsonplaceholder.typicode.com
+=== src/SimpleUserTabs.js ===
+import React, { useState, useEffect } from 'react';
+const styles = {
+container: { fontFamily: 'sans-serif', textAlign: 'center' },
+tabs: { marginBottom: '20px' },
+tabButton: {
+padding: '10px 15px',
+border: '1px solid #ccc',
+background: '#f0f0f0',
+cursor: 'pointer',
+},
+activeTab: {
+background: '#333',
+color: 'white',
+},
+contentList: {
+listStyle: 'none',
+padding: 0,
+margin: '0 auto',
+maxWidth: '600px',
+},
+listItem: {
+border: '1px solid #eee',
+padding: '12px',
+textAlign: 'left',
+marginBottom: '5px',
+},
+};
+const tabDataKeys = {
+Name: 'name',
+Email: 'email',
+Username: 'username',
+'Mobile No': 'phone',
+};
+const tabNames = Object.keys(tabDataKeys);
+function SimpleUserTabs() {
+const [users, setUsers] = useState([]);
+const [activeTab, setActiveTab] = useState('Name');
+const [loading, setLoading] = useState(true);
+const [error, setError] = useState(null);
+useEffect(() => {
+const fetchUsers = async () => {
+const apiUrl = ${process.env.REACT_APP_API_URL}/users;
+try {
+const response = await fetch(apiUrl);
+if (!response.ok) {
+throw new Error(HTTP error! Status: ${response.status});
+}
+const data = await response.json();
+setUsers(data);
+} catch (e) {
+setError(e.message);
+} finally {
+setLoading(false);
+}
+};
+fetchUsers();
+}, []);
+const renderContent = () => {
+if (loading) return <p>Loading...</p>;
+if (error) return <p>Error: {error}</p>;
+const dataKey = tabDataKeys[activeTab];
+return (
+  <ul style={styles.contentList}>
+    {users.map((user) => (
+      <li key={user.id} style={styles.listItem}>
+        {user[dataKey]}
+      </li>
+    ))}
+  </ul>
+);
+};
+return (
+<div style={styles.container}>
+<h1>Tabs on category</h1>
+<div style={styles.tabs}>
+{tabNames.map((tabName) => (
+<button
+key={tabName}
+style={{
+...styles.tabButton,
+...(activeTab === tabName ? styles.activeTab : {}),
+}}
+onClick={() => setActiveTab(tabName)}
+>
+{tabName}
+</button>
+))}
+</div>
+{renderContent()}
+</div>
+);
+}
+export default SimpleUserTabs;
+=== src/App.js ===
+import React from 'react';
+import SimpleUserTabs from './SimpleUserTabs';
+function App() {
+return (
+<div className="App">
+<SimpleUserTabs />
+</div>
+);
+}
+export default App;
+STEPS TO RUN:
+cd reactapp
+npm i
+npm start
+Click on PORT: 8081 to view output
+================================================================================
+
+QUESTION 5: Theme Toggle with Environment Variables
+Brief: Implement theme toggle functionality using environment variables.
+Requirements:
+
+Set default theme using REACT_APP_DEFAULT_THEME
+Toggle between dark and light themes
+Default to light mode if variable is invalid
+
+FILE STRUCTURE:
+reactapp/
++-- src/
+¦   +-- App.js
+¦   +-- App.css
+¦   +-- index.js
++-- .env
++-- package.json
+CODE IMPLEMENTATION:
+=== .env ===
+Set the default theme to 'dark' or 'light'
+REACT_APP_DEFAULT_THEME=dark
+=== src/App.js ===
+import React, { useState } from 'react';
+import './App.css';
+const getInitialTheme = () => {
+if (process.env.REACT_APP_DEFAULT_THEME === 'dark') {
+return 'dark';
+}
+return 'light';
+};
+function App() {
+const [theme, setTheme] = useState(getInitialTheme);
+const handleToggleTheme = () => {
+setTheme(prevTheme => (prevTheme === 'light' ? 'dark' : 'light'));
+};
+return (
+<div className="App">
+{/* Display the current theme mode dynamically */}
+<h1>{theme} mode</h1>
+  {/* The button to trigger the theme change */}
+  <button onClick={handleToggleTheme}>Toggle Theme</button>
+</div>
+);
+}
+export default App;
+STEPS TO RUN:
+cd reactapp
+npm install
+npm start
+Click on PORT: 8081 to view output
+================================================================================
+
+QUESTION 6: React Router with API Integration
+Brief: Create routing with Home and Users pages using API data.
+Requirements:
+
+Implement routing with react-router-dom
+Create Navbar with Home and Users links
+Fetch and display users from API on Users page
+
+FILE STRUCTURE:
+reactapp/
++-- src/
+¦   +-- components/
+¦   ¦   +-- Navbar.js
+¦   +-- pages/
+¦   ¦   +-- Home.js
+¦   ¦   +-- Users.js
+¦   +-- App.js
+¦   +-- index.js
++-- .env
++-- package.json
+CODE IMPLEMENTATION:
+=== .env ===
+REACT_APP_API_URL=https://jsonplaceholder.typicode.com/users
+=== src/components/Navbar.js ===
+import React from 'react';
+import { Link } from 'react-router-dom';
+function Navbar() {
+const navStyle = {
+paddingBottom: '15px',
+borderBottom: '1px solid #ccc',
+marginBottom: '20px'
+};
+const linkStyle = {
+margin: '0 10px',
+textDecoration: 'none'
+};
+return (
+<nav style={navStyle}>
+<Link to="/" style={linkStyle}>Home</Link>
+<Link to="/users" style={linkStyle}>Users</Link>
+</nav>
+);
+}
+export default Navbar;
+=== src/pages/Home.js ===
+import React from 'react';
+function Home() {
+return (
+<div>
+<h2>Welcome to the Home Page</h2>
+</div>
+);
+}
+export default Home;
+=== src/pages/Users.js ===
+import React, { useState, useEffect } from 'react';
+function Users() {
+const [users, setUsers] = useState([]);
+const [loading, setLoading] = useState(true);
+useEffect(() => {
+fetch(process.env.REACT_APP_API_URL)
+.then(response => response.json())
+.then(data => {
+setUsers(data);
+setLoading(false);
+})
+.catch(error => {
+console.error("Error fetching users:", error);
+setLoading(false);
+});
+}, []);
+if (loading) {
+return <p>Loading users...</p>;
+}
+return (
+<div>
+<h2>Users</h2>
+<ul>
+{users.map(user => (
+<li key={user.id}>{user.name}</li>
+))}
+</ul>
+</div>
+);
+}
+export default Users;
+=== src/App.js ===
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import Navbar from './components/Navbar';
+import Home from './pages/Home';
+import Users from './pages/Users';
+import './App.css';
+function App() {
+return (
+<Router>
+<div className="App">
+{/* The Navbar will be displayed on every page */}
+<Navbar />
+    {/* Define the routes for your application */}
+    <Routes>
+      <Route path="/" element={<Home />} />
+      <Route path="/users" element={<Users />} />
+    </Routes>
+  </div>
+</Router>
+);
+}
+export default App;
+STEPS TO RUN:
+cd reactapp
+npm install
+npm start
+Click on PORT: 8081 to view output
+================================================================================ 
+END OF DOCUMENTATION
+
